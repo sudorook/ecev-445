@@ -1,0 +1,227 @@
+---
+title: Lab 1
+author: Ansel George
+output: pdf_document
+---
+
+```{r, message=F}
+library(bipartite)
+library(igraph)
+
+set.seed(10)
+```
+
+
+# Problem 4
+
+*What can edge weights be in ecological networks? Try to think of at least 3
+different measures for an ecological interaction. If you work with other
+network types, answer the question according to your domain of expertise.*
+
+1. Migration rates between demes.
+2. Transition probabilities in a Markov chain (generalization of 1.)
+3. Energy/mass flow in a food web.
+
+
+# Problem 6
+
+*What are the advantages/disadvantages of edge lists compared to matrices?*
+
+Edge lists are more memory-efficient for sparse matrices. If the number of
+edges $E$ is small enough that $E << V$, where $V$ is the number of vertices,
+then. For dense matrices, though, the number of edges could be $\sim N^2$, and
+the advantage is lost.
+
+
+# Problem 7
+
+*Try programming a function that takes a matrix and returns an edge list. Note
+that it may be important if the matrix is directed or weighted.*
+
+```{r}
+returnEdgeList <- function(M, directed=T) {
+  if (directed==F) {
+    E <- which(M != 0, arr.ind=T)
+    E <- E[E[,2] >= E[,1],] # record edges in upper triangle (assume symmetry)
+    weight <- M[E]
+    E <- cbind(E, weight)
+    colnames(E) <- c("from", "to", "weight")
+  } else {
+    E <- which(M != 0, arr.ind=T)
+    weight <- M[E]
+    E <- cbind(E, weight)
+    colnames(E) <- c("from", "to", "weight")
+  }
+  return(E)
+}
+```
+
+```{r}
+M <- matrix(nrow=4, ncol=4, byrow=T,
+            c(1, 3, 0, 0,
+              4, 0, 0, 1,
+              0, 0, 3, 0,
+              0, 0, 0, 1))
+
+E <- returnEdgeList(M)
+E
+```
+
+# Problem 8
+
+*Try programming a function that takes an edge list and returns a matrix. Note
+that it may be important if the matrix is directed or weighted.*
+
+```{r}
+returnAdjacencyMatrix <- function(edgelist, directed=T) {
+  maxdim <- max(edgelist[,1:2])
+  M <- matrix(nrow=maxdim, ncol=maxdim, rep(0, maxdim*maxdim))
+  if (directed == T) {
+    if (dim(edgelist)[2] == 3) {
+       M[edgelist[,1:2]] <- edgelist[,3]
+    } else if (dim(edgelist)[2] == 2) {
+       M[edgelist[,1:2]] <- 1
+    }
+  } else {
+    # preserve symmetry for directed graph.
+    if (dim(edgelist)[2] == 2) {
+      M[edgelist[,1:2]] <- 1
+      M[edgelist[,2:1]] <- 1
+    } else if (dim(edgelist)[2] == 3) {
+      edgelist <- edgelist[edgelist[,2] >= edgelist[,1],] # record edges in upper triangle (assume symmetry)
+      M[edgelist[,1:2]] <- edgelist[,3] # assume weights are correct
+      M[edgelist[,2:1]] <- edgelist[,3]
+    }
+  }
+  return(M)
+}
+```
+
+```{r}
+returnAdjacencyMatrix(E)
+```
+
+
+# Problem 9
+*Now try to load a different data set. Where can you find available ones?*
+
+The `bipartite` packages has several other datasets available. A list is
+available on the packages documentation:
+
+\url{https://cran.r-project.org/web/packages/bipartite/bipartite.pdf}
+
+For example, the `barrett1987` dataset contains information about pollinators
+in the boreal forest in New Brunswick. 
+
+```{r}
+data(barrett1987)
+```
+
+Other datasets are available online (datadryad, Interaction Web DataBase, and so on).
+
+
+# Problem 17
+
+*Try to obtain 2 data sets from 2 different repositories, load them and plot
+them.*
+
+
+## Species-specific responses to habitat conversion
+
+Frishkoff L, Karp D (2019) Data from: Species-specific responses to habitat
+conversion across scales synergistically restructure Neotropical bird
+communities. Dryad Digital Repository.
+\url{https://doi.org/10.5061/dryad.fg8kq66}
+
+
+Download data:
+
+```{bash, message=F}
+mkdir -p frishkoff-data
+cd frishkoff-data
+wget -nc https://datadryad.org/bitstream/handle/10255/dryad.212360/community-data.csv
+wget -nc https://datadryad.org/bitstream/handle/10255/dryad.212361/edge-data.csv
+wget -nc https://datadryad.org/bitstream/handle/10255/dryad.212362/forestcover-data.csv
+wget -nc https://datadryad.org/bitstream/handle/10255/dryad.212363/precip-data.csv
+wget -nc https://datadryad.org/bitstream/handle/10255/dryad.212368/visit-data.csv
+wget -nc https://datadryad.org/bitstream/handle/10255/dryad.212369/readme.txt
+cd ..
+```
+
+Load data:
+
+```{r}
+prefix <- "frishkoff-data/"
+community_data <- read.csv(paste(prefix, "community-data.csv", sep=""))
+edge_data <- read.csv(paste(prefix, "edge-data.csv", sep=""))
+forestcover_data <- read.csv(paste(prefix, "forestcover-data.csv", sep=""))
+precip_data <- read.csv(paste(prefix, "precip-data.csv", sep=""))
+visit_data <- read.csv(paste(prefix, "visit-data.csv", sep=""))
+```
+
+Plot data:
+
+```{r}
+sites <- community_data$Site
+species <- community_data$Species
+links <- data.frame(species, sites)
+
+y <- c(rep(0, length(levels(species))), rep(1, length(levels(sites))))
+# x <- runif(length(y))
+x <- c(seq(1, length(levels(species)))/length(levels(species)),
+       seq(1, length(levels(sites)))/length(levels(sites)))
+coords <- cbind(x, y)
+nodes <- c(as.vector(unique(species)), as.vector(unique(sites)))
+
+p <- graph.data.frame(links, vertices=nodes, directed=F)
+par(mar = c(0, 0, 0, 0)) # reduce margin size
+# plot(p, layout=coords, vertex.color=(coords[,2]+1), vertex.label=NA, vertex.size=5, edge.width=.1)
+plot(p, layout=coords, vertex.color=(coords[,2]+1), vertex.label=NA,
+     vertex.size=5, edge.width=.1,
+     edge.color = adjustcolor("black", alpha.f = .025))
+```
+
+The top set (blue) are geographical sites, and the bottom (orange) are species.
+An edge between site and species signifies that the species is recorded to have
+been found in the site. There are 25 sites and 150 species. One can vaguely
+tell by the graph that some species are found in more sites and some site are
+host to more species. Surely there are better ways to represent this clearly...
+
+
+## Rainforest ant-plant interaction network
+
+This describes de ant-plant interaction network in the rainforest at the
+Australian Canopy Crane in Cape Tribulation, Far North Queensland, Australia
+and adjacent forests within 5 km radius of the crane site, including patches of
+open secondary forest. Counts of ant colonies attending extrafloral (EFN) and
+floral nectaries (FN) are provided, as well as independent abundance estimates
+for ant colonies based on sugar bait experiment (from Blüthgen and Fiedler
+2004). Ants with zero abundance are those not recorded during bait experiments.
+For plants, number of plant individuals on which any insect were recorded on
+nectaries given as abundance estimate.  Plant life forms: cl = climber, he =
+herb, sh = shrub, tr = tree, pa = palm. 
+
+```{bash, message=F}
+mkdir -p bluthgen-data
+cd bluthgen-data
+wget -nc https://www.nceas.ucsb.edu/interactionweb/data/ant_plant/text_matrices/bluthgen_et_al_2004.txt
+wget -nc https://www.nceas.ucsb.edu/interactionweb/data/ant_plant/excel_matrices/bluthgen_2004.xls
+cd ..
+```
+
+```{r}
+path <- "bluthgen-data/"
+filename <- "bluthgen_et_al_2004.txt"
+interaction_data <- read.table(paste(path, filename, sep=""), sep = '\t', header = F)
+ant_data <- read.table("bluthgen-data/ants.txt", sep = '\t', header = T, quote = "",)
+plant_data <- read.table("bluthgen-data/plants.txt", sep = '\t', header = T)
+```
+
+```{r, message=F, warning=F}
+colnames(interaction_data) <- plant_data$Species
+rownames(interaction_data) <- ant_data$Species
+visweb(interaction_data)
+visweb(interaction_data > 0) # binary version
+
+plotweb(interaction_data)
+```
