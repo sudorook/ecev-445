@@ -1,0 +1,116 @@
+---
+title: Lab 2
+author: Ansel George
+output: pdf_document
+---
+
+```{r, message=F}
+library(igraph)
+library(bipartite)
+library(ggplot2)
+
+set.seed(10)
+```
+
+
+# Problem 4
+*Try to calculate and access metrics at the species level (e.g., host assemblage
+or parasite assemblage) level. Use the help to discover which metrics bipartite
+has implemented.*
+
+For host vs parasite assemblage statistics, use the `grouplevel` function from
+`bipartite`.
+
+```{r}
+data(olesen2002flores)
+
+gl_metrics <- grouplevel(olesen2002flores)
+gl_metrics
+```
+
+The first column corresponds to the parasite statistics and the second to those
+for the hosts.
+
+Additionally, one can compute cross products on the binary data. For the host
+assemblage, the entries reveal the number of shared parasites a pair of hosts
+have, and for the parasite assemblage, the entries represent the number of
+hosts a pair of parasite both parasitize.
+
+
+```{r}
+olesen2002flores_binary <- 1*(olesen2002flores>0)
+# Host assemblage
+olesen2002flores_hosts <- tcrossprod(olesen2002flores_binary)
+olesen2002flores_hosts
+
+# Parasite assemblage
+olesen2002flores_parasite <- crossprod(olesen2002flores_binary)
+olesen2002flores_parasite
+```
+
+
+# Problem 7
+*What information do we lose when projecting?*
+
+All the information regarding specific interactions between higher-lower
+species is lost.
+
+
+# Problem 9
+*What is the ecological interpretation of the projections of a plant-pollinator
+network and of a host-parasite network?*
+
+**Plant-pollinator:**
+
+1. Plant projection - number of shared pollinators between species.
+2. Pollinator projection - number of plants a pair of species both pollinate.
+
+**Host-parasite:**
+
+1. Host projection - number of shared parasites for a given pair of hosts.
+2. Parasite projection - number of hosts a pair of parasites both exploit.
+
+
+# Problem 14
+*Can you think of an ecological interpretation to each of these measures? Some
+intuition is given in the Martín-González et al. (2010) and Delmas et al.
+(2019) references.*
+
+Closeness centrality measures the proximity of a species to others. If one
+consider flows of information through the network where signals are split or
+attenuated as they hop from one node to the next, then species with high
+connectedness centrality will receive much more information then less connected
+species. The information could represent perturbations in the food chain, such
+as extinctions, population explosions, etc.
+
+Betweenness centrality measures the importance of a species in terms of some
+metric for flow through the network. One metric can be the minimum number of
+links to traverse the food web from any given pair of species. The measure is
+not unrelated from connectedness centrality. For example, betweenness and
+connectedness can identify keystone species given a network topology where
+nodes are sparsely connected absent those with high connectedness/betweenness.
+On the other hand, the two can differ substantially in very dense networks
+where many nodes are connected to many others. All will have high connectedness
+centrality but potentially low betweenness centrality.
+
+Eigenvector centrality is a way of interpreting flows through the food web. In
+a network, eigenvectors represent flow proportions that maximize overall flow
+in the network. If this is taken as a proxy for importance/centrality, then the
+values of the eigenvector correspond to the centrality of a given species.
+
+Because the entries in the network adjacency network are non-negative the
+network itself irreducible, the largest eigenvalue will be positive (or one of
+a pair roots, one positive and one negative) and its corresponding eigenvector
+will also be positive. If the network allows negative interactions/flows, then
+this approach may not necessarily hold.
+
+
+# Problem 17
+*What is the dominant sub-graph in the Otago food web? What is its ecological
+meaning?*
+
+There are two motifs in the subgraph with proportion greater than 0.1: 3 and 7.
+
+Motif 7 (0.4170122917): One plant is pollinated by two different pollinators.
+
+Motif 3 (0.2357665334): Two plants are pollinated by the same pollinator.
