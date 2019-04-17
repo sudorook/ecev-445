@@ -23,29 +23,32 @@ For host vs parasite assemblage statistics, use the `grouplevel` function from
 
 ```{r}
 data(olesen2002flores)
+olesen2002flores_binary <- 1*(olesen2002flores>0)
 
 gl_metrics <- grouplevel(olesen2002flores)
 gl_metrics
 ```
 
 The first column corresponds to the parasite statistics and the second to those
-for the hosts.
-
-Additionally, one can compute cross products on the binary data. For the host
-assemblage, the entries reveal the number of shared parasites a pair of hosts
-have, and for the parasite assemblage, the entries represent the number of
-hosts a pair of parasite both parasitize.
+for the hosts. Several of these parameters can be computed from the compute
+cross products on the binary data. For the host assemblage, the entries reveal
+the number of shared parasites a pair of hosts have, and for the parasite
+assemblage, the entries represent the number of hosts a pair of parasite both
+parasitize.
 
 
 ```{r}
-olesen2002flores_binary <- 1*(olesen2002flores>0)
 # Host assemblage
 olesen2002flores_hosts <- tcrossprod(olesen2002flores_binary)
-olesen2002flores_hosts
+weighted.mean(colSums(olesen2002flores_binary),
+              w=apply(olesen2002flores,2,sum)/sum(olesen2002flores)) # mean.number.of.links.HL
+mean(rowSums((olesen2002flores_hosts-diag(10)*diag(olesen2002flores_hosts))))/9 # mean.number.of.shared.partners.LL
 
 # Parasite assemblage
 olesen2002flores_parasite <- crossprod(olesen2002flores_binary)
-olesen2002flores_parasite
+weighted.mean(rowSums(olesen2002flores_binary),
+              w=apply(olesen2002flores,1,sum)/sum(olesen2002flores)) # mean.number.of.links.HL
+mean(rowSums((olesen2002flores_parasite-diag(12)*diag(olesen2002flores_parasite))))/11 # mean.number.of.shared.partners.HL
 ```
 
 
@@ -94,15 +97,19 @@ where many nodes are connected to many others. All will have high connectedness
 centrality but potentially low betweenness centrality.
 
 Eigenvector centrality is a way of interpreting flows through the food web. In
-a network, eigenvectors represent flow proportions that maximize overall flow
-in the network. If this is taken as a proxy for importance/centrality, then the
-values of the eigenvector correspond to the centrality of a given species.
+a network, eigenvectors represent flow proportions per node that maximize
+overall flow in the network. If this is taken as a proxy for
+importance/centrality, then the values of the eigenvector correspond to the
+centrality of a given species. Interpreting the centrality measure (aka
+eigenvalue) ecologically is difficult and depends on network structure. If the
+distribution of normalized loadings for each node is skewed in favor of a small
+proportion of them, the these nodes are likely to be highly important to the
+overall network, and if they are all roughly equal, there are many connections
+and redundant paths through the network.
 
-Because the entries in the network adjacency network are non-negative the
-network itself irreducible, the largest eigenvalue will be positive (or one of
-a pair roots, one positive and one negative) and its corresponding eigenvector
-will also be positive. If the network allows negative interactions/flows, then
-this approach may not necessarily hold.
+Note that this requires the network edges be non-negative the network itself
+irreducible. If the network allows negative interactions/flows or if orthogonal
+subgraphs in the network exist, then this approach may not necessarily hold.
 
 
 # Problem 17
