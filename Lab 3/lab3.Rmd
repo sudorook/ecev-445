@@ -1,0 +1,34 @@
+---
+title: Lab 3
+author: Ansel George
+output: pdf_document
+---
+
+```{r, message=F}
+library(igraph)
+library(bipartite)
+library(RColorBrewer)
+
+set.seed(10)
+```
+
+# Problem 2
+Try loading a different food web and find the modules.
+
+# Problem 5
+Try to calculate modularity for the binary version of this web. How do the
+results differ?
+
+# Problem 6
+Can you project the network and calculate modularity in each of the
+projections? Do plants that cluster together in the projection also cluster
+together in the bipartite version? Is there an difference in the ecological
+interpretation between these two scenarios?
+
+# Problem 7
+Find another data set that interests you personally in which you could
+hypothesize the existence of communities. Explain why this hypothesis is
+relevant for this data set. Analyze for communities. Do the results support the
+hypothesis (e.g., when you examine the nodes in each module).
+
+
