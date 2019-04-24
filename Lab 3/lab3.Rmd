@@ -8,27 +8,227 @@ output: pdf_document
 library(igraph)
 library(bipartite)
 library(RColorBrewer)
+library(knitr)
 
 set.seed(10)
 ```
 
 # Problem 2
-Try loading a different food web and find the modules.
+*Try loading a different food web and find the modules.*
+
+Data obtained from food web network of the Cayman Islands, Cuban, and Jamaican
+coral reef systems. Each vertex in the graph corresponds to a guild in the food
+web, and each edge represents a predator-prey interaction between guilds.
+
+> Roopnarine PD, Hertog R (2012) Detailed food web networks of three Greater
+> Antillean coral reef systems: the Cayman Islands, Cuba, and Jamaica. Dataset
+> Papers in Ecology 2013: 857470. https://doi.org/10.7167/2013/857470
+
+> Roopnarine PD, Hertog R (2012) Data from: Detailed food web networks of three
+> Greater Antillean coral reef systems: the Cayman Islands, Cuba, and Jamaica.
+> Dryad Digital Repository. https://doi.org/10.5061/dryad.c213h 
+
+```{r}
+web_data <- as.matrix(read.csv('857470.item.5.dat', sep=' ', header=F))
+web <- graph.adjacency(as.matrix(web_data, mode='directed', weighted=F)) 
+web_unweighted <- as.undirected(web)
+E(web_unweighted)$weight <- 1
+cl <- cluster_louvain(web_unweighted) # Can also use the weights = NULL argument
+class(cl) # the result is of class communities
+
+module_membership <- membership(cl)
+cols <- data.frame(mem=unique(module_membership), col= brewer.pal(length(unique(module_membership)), 'Set1'))
+V(web_unweighted)$module_membership <- module_membership
+V(web_unweighted)$color <- cols$col[match(V(web_unweighted)$module_membership, cols$mem)]
+plot(web_unweighted, vertex.color=V(web_unweighted)$color, vertex.size=5, vertex.label=NA, edge.arrow.width=0.3, edge.arrow.curve=0.5)
+```
+
+Several guilds are not recorded as interacting with others, to they are stuck
+in the periphery of the graph. The remaining form four discernible modules.
+
 
 # Problem 5
-Try to calculate modularity for the binary version of this web. How do the
-results differ?
+*Try to calculate modularity for the binary version of this web. How do the
+results differ?*
+
+## Original version
+
+```{r}
+mod <- computeModules(memmott1999)
+slotNames(mod) # see ?moduleWeb for details
+mod@likelihood # This is the value of the modularity function Q. NOTICE THE @ SIGN (instead of $).
+module_list <- listModuleInformation(mod) # The output is rather cumbersome...
+plotModuleWeb(mod)
+
+module_list <- module_list[[2]] # let's look at the modules. The first element in the list is the whole network, so start with 2
+for (i in 1:length(module_list)){ # Show the two first modules.
+  message(paste('Module:',i))
+  print(module_list[[i]])
+}
+```
+
+## Binary version
+
+```{r}
+memmott1999_binary <- 1*(memmott1999>0)
+
+mod_binary <- computeModules(memmott1999_binary)
+slotNames(mod_binary) # see ?moduleWeb for details
+mod_binary@likelihood # This is the value of the modularity function Q. NOTICE THE @ SIGN (instead of $).
+module_list_binary <- listModuleInformation(mod_binary) # The output is rather cumbersome...
+plotModuleWeb(mod_binary)
+
+module_list_binary <- module_list_binary[[2]] # let's look at the modules. The first element in the list is the whole network, so start with 2
+# for (i in 1:2){ # Show the two first modules.
+for (i in 1:length(module_list_binary)){
+  message(paste('Module:',i))
+  print(module_list_binary[[i]])
+}
+```
+
+## Comparison
+
+The number of modules is reduced in the binary version of the data, but the
+modules comprise similar species. Modules 7 in the full data and 1 in the
+binary version are largely the same, as are modules 2 and 2. The likelihoods of
+the computed modularities are similar for both versions, too.
+
+Regarding modularity $Q$, the binary version has value 0.3309583, compared to
+0.303061 in the full version.
+
 
 # Problem 6
-Can you project the network and calculate modularity in each of the
+*Can you project the network and calculate modularity in each of the
 projections? Do plants that cluster together in the projection also cluster
 together in the bipartite version? Is there an difference in the ecological
-interpretation between these two scenarios?
+interpretation between these two scenarios?*
+
+```{r}
+# memmott1999_plants <- tcrossprod(memmott1999)
+memmott1999_plants <- tcrossprod(memmott1999_binary)
+mod_plants <- computeModules(memmott1999_plants)
+slotNames(mod_plants) # see ?moduleWeb for details
+mod_plants@likelihood # This is the value of the modularity function Q. NOTICE THE @ SIGN (instead of $).
+module_list_plants <- listModuleInformation(mod_plants) # The output is rather cumbersome...
+plotModuleWeb(mod_plants)
+
+module_list_plants <- module_list_plants[[2]] # let's look at the modules. The first element in the list is the whole network, so start with 2
+for (i in 1:length(module_list_plants)){ # Show the two first modules.
+  message(paste('Module:',i))
+  print(module_list_plants[[i]])
+}
+```
+
+The modules in the original data and the plant projections do not have
+identical members, but many are shared among them.
+
+For plants, the overall modularity is lower than that of the full bipartite
+network of plant-parasite interactions (0.1249494). Module 3 roughly
+corresponds to module 3 in the binary version of the food web data; module 1 to
+module 7; and module 5 to module 4.
+
+
+```{r}
+# memmott1999_parasites <- crossprod(memmott1999)
+memmott1999_parasites <- crossprod(memmott1999_binary)
+mod_parasites <- computeModules(memmott1999_parasites)
+slotNames(mod_parasites) # see ?moduleWeb for details
+mod_parasites@likelihood # This is the value of the modularity function Q. NOTICE THE @ SIGN (instead of $).
+module_list_parasites <- listModuleInformation(mod_parasites) # The output is rather cumbersome...
+plotModuleWeb(mod_parasites)
+
+module_list_parasites <- module_list_parasites[[2]] # let's look at the modules. The first element in the list is the whole network, so start with 2
+for (i in 1:length(module_list_parasites)){ # Show the two first modules.
+  message(paste('Module:',i))
+  print(module_list_parasites[[i]])
+}
+```
+
+Similarly, the modules in the original data and the parasite projections do not
+have identical members, but many are shared.
+
+The overall modularity is lower than that of the full bipartite
+network of plant-parasite interactions (0.1339582). Module 3 in the full
+interaction data corresponds to module 3 in the parasite projection, as do
+Modules 2 and 4, respectively.
+
+Modules of species can correspond to several ecological phenomena. They could
+represent shared niche that makes them target or be targeted by the same
+species. They could signify geographical location - close species are more
+likely to share interactions. 
+
+As species become less correlated and the degree of separation between a shared
+downstream species grows, the propensity for them to form distinct modules will
+also decrease. This would explain the reduced modularity for computed for
+projections relative to the original dataset.
+
 
 # Problem 7
-Find another data set that interests you personally in which you could
+*Find another data set that interests you personally in which you could
 hypothesize the existence of communities. Explain why this hypothesis is
 relevant for this data set. Analyze for communities. Do the results support the
-hypothesis (e.g., when you examine the nodes in each module).
+hypothesis (e.g., when you examine the nodes in each module).*
+
+The following is a module visualization/computation for a diseasome network. It
+has been suggested that a network topology approach to disease comorbidity or
+maps between genotype and molecular properties to phenotype can reveal the
+mechanisms responsible for sets of diseases, where diseases within a cluster
+are more likely to share more underlying causative factors than diseases more
+distant along the diseasome graph. This approach will not specify function *per
+se*, but it could be useful in studying metabolites, signalling proteins, etc.
+that may be difficult or expensive to study using more direct, traditional
+methods.
+
+[1] www0.cs.ucl.ac.uk/staff/N.Przulj/Briefings-in-Functional-Genomics-2012-Janjic-522-32.pdf
+
+```{bash, eval=F}
+wget -nc http://nrvis.com/download/data/bio/bio-diseasome.zip
+unzip bio-diseaseome.zip
+sed '1,2d' bio-diseasome.mtx
+```
+
+```{bash, eval=F}
+wget -nc https://gephi.org/datasets/diseasome.gexf.zip
+unzip diseasome.gexf.zip
+cat diseasome.gexf | sed -n 's/^<edge source="\(.*\)" target="\(.*\)" .*>/\1\t\2/p' > edges.txt
+cat diseasome.gexf | sed -n 's/^<node id="\(.*\)" label="\(.*\)" .*>/\1\t\2/p' > nodes.txt
+```
+
+```{r}
+disease_edges <- read.csv('edges.txt', sep='\t', header=F)
+disease_nodes <- read.csv('nodes.txt', sep='\t', header=F)
+disease_web <- igraph::graph.data.frame(disease_edges, directed = F)
+
+disease_web_unweighted <- as.undirected(disease_web)
+E(disease_web_unweighted)$weight <- 1
+cl <- cluster_louvain(disease_web_unweighted) # Can also use the weights = NULL argument
+class(cl) # the result is of class communities
+
+module_membership <- membership(cl)
+# cols <- data.frame(mem=unique(module_membership), col=brewer.pal(length(unique(module_membership)), 'Set3'))
+cols <- data.frame(mem=unique(module_membership), col=rep(brewer.pal(length(unique(module_membership)), 'Set3'), length.out=length(unique(module_membership)) ))
+V(disease_web_unweighted)$module_membership <- module_membership
+V(disease_web_unweighted)$color <- cols$col[match(V(disease_web_unweighted)$module_membership, cols$mem)]
+par(mar=c(0,0,0,0))
+plot(disease_web_unweighted, vertex.color=V(disease_web_unweighted)$color, vertex.size=5, vertex.label=NA, edge.arrow.width=0.3, edge.arrow.curve=0.5)
+```
+
+Due to the sheer size of the dataset, only the first module is displayed below.
+
+```{r}
+disease_nodes$V2[which(as.vector(module_membership == 1))]
+```
+
+The diseases themselves do not share an obvious commonality. Some are X-linked;
+some involve degeneration of ion transporters in the cell membrane; and some
+cause degenerative conditions in the bones and muscles.
+
+To make strong claims about the data would require more granular information
+about gene regulatory networks and whether the diseases in modules are enriched
+against a null model based on random networks. Also, given the number of
+modules produced, corrections for multiple hypothesis tests are needed.
 
 
+```{r, message=F, results='hide'}
+purl("lab3.Rmd", output = "lab3.R")
+```
