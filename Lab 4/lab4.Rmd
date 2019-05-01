@@ -1,0 +1,216 @@
+---
+title: Lab 4
+author: Ansel George
+output: pdf_document
+---
+
+```{r, message=F}
+library(bipartite) # will also load vegan
+library(ggplot2)
+library(knitr)
+
+set.seed(10)
+```
+
+# Problem 1
+*What kind of model (equiprobable, probabilistic, fixed) is `r00`?*
+
+equiprobable (row and column)
+
+
+# Problem 2
+*Can you program the algorithm for `r00` by yourself?*
+
+```{r}
+r00 <- function(A) {
+  nr <- dim(A)[1]
+  nc <- dim(A)[2]
+  out <- rep(0, nr*nc)
+  out[sample.int(nr*nc, sum(A))] <- 1
+  dim(out) <- c(nr, nc)
+  return(out)
+}
+```
+
+```{r}
+nr <- 5
+nc <- 4
+A <- matrix(sample(c(0,1), nc*nr, replace=T), nrow=nr, ncol=nc)
+
+A
+r00(A)
+```
+
+
+# Problem 4
+*There is no better way to understand the mechanics of randomization algorithms
+than to program one for yourself! Try to program the probabilistic model from
+[6]: "The probability of each cell being occupied is the average of the
+probabilities of occupancy of its row and column." This means that the
+probability of drawing an interaction is proportional to the degree of both the
+lower-level and the higher-level species. Mathematically:*
+
+\begin{align}
+P_{ij} = \frac{1}{2}\left(\frac{\sum A_{i}}{J}+\frac{\sum A_{j}}{I}\right)
+\end{align}
+
+_where $A_{ij}$ is the incidence matrix in which $I$ and $J$ denote the total
+number of species in the rows and columns, respectively. Try to program that
+algorithm. Can you note one problem that you are facing?_
+
+```{r}
+randomize <- function(A) {
+  I <- dim(A)[1]
+  J <- dim(A)[2]
+  a1 <- rowSums(A) / J
+  a2 <- colSums(A) / I
+  out <- 1/2 * (outer(a1, rep(1,length(a2))) +
+                t(outer(a2, rep(1, length(a1)))))
+  out <- matrix(rbinom(J*I, 1, as.vector(out)), nrow=I, ncol=J)
+  return(out)
+}
+
+randomize2 <- function(A) {
+  I <- dim(A)[1]
+  J <- dim(A)[2]
+  a1 <- rowSums(A) / J
+  a2 <- colSums(A) / I
+  p <- 1/2 * (outer(a1, rep(1,length(a2))) +
+              t(outer(a2, rep(1, length(a1)))))
+  p <- as.vector(p) / sum(p)
+  out <- rep(0, nr*nc)
+  out[sample.int(nr*nc, sum(A), replace=F, p)] <- 1
+  dim(out) <- c(nr, nc)
+  return(out)
+}
+```
+
+```{r}
+A
+A_r <- randomize(A)
+A_r
+```
+
+```{r}
+tmp <- matrix(0, nrow=nr, ncol=nc)
+n <- 10000
+for (i in 1:n) {
+  tmp <- tmp + randomize(A)
+}
+tmp <- tmp / n
+```
+
+
+The algorithm will not necessarily preserve the marginal likelihoods. Their
+expectations will match the values of the original matrix, but there will be
+deviations from the expectation arising from the probabilistic way the
+connections are generated.
+
+```{r}
+tmp <- matrix(0, nrow=nr, ncol=nc)
+n <- 25000
+for (i in 1:n) {
+  tmp <- tmp + randomize(A)
+}
+tmp <- tmp / n
+```
+
+```{r}
+I <- dim(A)[1]
+J <- dim(A)[2]
+a1 <- rowSums(A) / J
+a2 <- colSums(A) / I
+p <- 1/2 * (outer(a1, rep(1,length(a2))) +
+            t(outer(a2, rep(1, length(a1)))))
+
+# Compare tmp and p
+tmp
+p
+```
+
+
+The algorithm could be alternatively formulated as follows:
+
+```{r}
+randomize2 <- function(A) {
+  I <- dim(A)[1]
+  J <- dim(A)[2]
+  a1 <- rowSums(A) / J
+  a2 <- colSums(A) / I
+  p <- 1/2 * (outer(a1, rep(1,length(a2))) +
+                t(outer(a2, rep(1, length(a1)))))
+  p <- as.vector(p) / sum(p)
+  out <- rep(0, nr*nc)
+  out[sample.int(nr*nc, sum(A), replace=F, p)] <- 1
+  dim(out) <- c(nr, nc)
+  return(out)
+}
+```
+
+This version will preserve the number of interactions, but it will skew the
+probability of an interaction for each element of A because of the
+combinatorial problem of drawing from a set of values without replacement.
+
+```{r}
+tmp <- matrix(0, nrow=nr, ncol=nc)
+n <- 25000
+for (i in 1:n) {
+  tmp <- tmp + randomize2(A)
+}
+tmp <- tmp / n
+```
+
+```{r}
+I <- dim(A)[1]
+J <- dim(A)[2]
+a1 <- rowSums(A) / J
+a2 <- colSums(A) / I
+p <- 1/2 * (outer(a1, rep(1,length(a2))) +
+            t(outer(a2, rep(1, length(a1)))))
+
+# Compare tmp and p
+tmp
+p
+```
+
+# Problem 5
+*Try comparing to a fixed shuffling algorithm like `curveball`. Are there
+differences in the results when using different null models? Why?*
+
+The `curveball` fixed shuffling algorithm will preserve the number of links and
+the marginal sums. Other algorithms, such as `r1` and `r0`, will instead fix
+the marginals. Different algorithms will impose different constraints on what
+values individual elements can take given other elements, so they will produce
+different randomized results. See below:
+
+```{r}
+num_iterations <- 25000
+
+#
+# r00
+#
+
+null_r00 <- vegan::nullmodel(A, method = 'r00') # Select a null model for the data
+shuffled_r00 <- simulate(null_r00, nsim = num_iterations) # Shuffle
+shuffled_r00[,,1]
+
+# r00 has equiprobable elements (sum(A) / (nc*nr))
+apply(shuffled_r00, c(1,2), mean)
+sum(apply(shuffled_r00, c(1,2), mean))
+
+
+#
+# curveball
+#
+
+null_curveball <- vegan::nullmodel(A, method = 'curveball') # Select a null model for the data
+shuffled_curveball <- simulate(null_curveball, nsim = num_iterations) # Shuffle
+shuffled_curveball[,,1]
+apply(shuffled_curveball, c(1,2), mean)
+sum(apply(shuffled_curveball, c(1,2), mean))
+```
+
+
+```{r, message=F, results="hide"}
+purl("lab4.Rmd", output = "lab4.R")
+```
