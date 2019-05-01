@@ -104,7 +104,6 @@ together in the bipartite version? Is there an difference in the ecological
 interpretation between these two scenarios?*
 
 ```{r}
-# memmott1999_plants <- tcrossprod(memmott1999)
 memmott1999_plants <- tcrossprod(memmott1999_binary)
 mod_plants <- computeModules(memmott1999_plants)
 slotNames(mod_plants) # see ?moduleWeb for details
@@ -129,7 +128,6 @@ module 7; and module 5 to module 4.
 
 
 ```{r}
-# memmott1999_parasites <- crossprod(memmott1999)
 memmott1999_parasites <- crossprod(memmott1999_binary)
 mod_parasites <- computeModules(memmott1999_parasites)
 slotNames(mod_parasites) # see ?moduleWeb for details
