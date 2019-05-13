@@ -1,0 +1,79 @@
+---
+title: Lab 6
+author: Ansel George
+output:
+    pdf_document:
+        latex_engine: xelatex
+        highlight: kate
+monofont: Ubuntu Mono
+mainfont: Roboto
+fontsize: 11pt
+---
+
+```{r, message=F}
+library(Basingstoke)
+library(igraph)
+library(bipartite)
+library(RColorBrewer)
+library(vegan)
+library(gtools)
+
+library(dplyr)
+library(tidyr)
+library(readr)
+library(stringr)
+library(ggplot2)
+
+set.seed(10)
+```
+
+
+# Problem 1
+
+What essential features of food webs does the random algorithm miss?
+
+
+# Problem 2
+
+Try to implement the cascade model by yourself.
+
+
+# Problem 3 (optional)
+
+Try to implement the niche model. This is a challenging function to write!!!
+Guidelines: Follow the caption in Fig. 1 of Williams and Martinez (2000), and
+take the beta value for the beta distribution to be (S-1)/2SC-1 (as in equation
+10 in the Supp Info of Allesina et al. (Science, 2008)). You can also get some
+inspiration from the function NicheModelLinks for the last step determining the
+consumers. But do not copy-paste this whole function, of course!
+
+
+# Problem 4
+
+Play around with the group model. Create matrices with more than 3 groups, for
+example.
+
+
+# Problem 5
+
+Compare generative models for a different network. That can be another food web
+(such as Chesapeake) or any other network. But, if you do not use a food web
+you should come up with generative model that make sense for your system!
+
+
+# Problem 6 (optional)
+
+Devise a code that maximizes the likelihood by also searching for the correct
+species order.
+
+
+# Problem 7 (optional)
+
+Generating networks can be used to test, for example, hypotheses regarding the
+consequences of structure. For example, we can ask if networks generated with
+the niche model are more robust than those generated using an Erdos-Reyni
+process. One exercise would be to generate a distribution of networks of a
+given size and connectance using different models and test their robustness.
+Try to do develop that code. You can also try to test if robustness is affected
+by the interaction between size, connectance and the different models (i.e., if
+different models produce more robust networks for a given range of $S$ or $C$)
