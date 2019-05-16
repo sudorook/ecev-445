@@ -4,7 +4,6 @@ author: Ansel George
 output:
     pdf_document:
         latex_engine: xelatex
-        highlight: kate
 monofont: Ubuntu Mono
 mainfont: Roboto
 fontsize: 11pt
@@ -23,6 +22,7 @@ library(tidyr)
 library(readr)
 library(stringr)
 library(ggplot2)
+library(reshape2)
 
 set.seed(10)
 ```
@@ -30,12 +30,42 @@ set.seed(10)
 
 # Problem 1
 
-What essential features of food webs does the random algorithm miss?
+*What essential features of food webs does the random algorithm miss?*
+
+Nestedness, modularity, trophic separation, etc.
 
 
 # Problem 2
 
-Try to implement the cascade model by yourself.
+*Try to implement the cascade model by yourself.*
+
+
+```{r}
+makeCascadeModel <- function(S, C) {
+  res <- matrix(0, ncol=S, nrow=S)
+  possiblelinks <- which(upper.tri(res))
+
+  # Compute the number of links necessary for the given connectance.
+  nlinks <- length(possiblelinks) * S*2 / (S-1) * C
+  rem <- nlinks - floor(nlinks)
+  nlinks <- floor(nlinks) + 1*(rem > runif(1))
+
+  links <- sample(possiblelinks, nlinks) # fails if nlinks > possiblelinks
+  res[links] <- 1
+  return(res)
+}
+```
+
+```{r}
+pop <- makeCascadeModel(10, .15)
+pop
+```
+
+The implementation will produce an adjacency matrix that, if used to generate
+many matrices, will produce a set of with expected connectance that converges
+to the specified connectance. The implementation in Basingstoke, which is
+arguably simpler (though it could be made more concise), produces higher
+variance in connectance for smaller versus larger graphs.
 
 
 # Problem 3 (optional)
@@ -50,15 +80,45 @@ consumers. But do not copy-paste this whole function, of course!
 
 # Problem 4
 
-Play around with the group model. Create matrices with more than 3 groups, for
-example.
+*Play around with the group model. Create matrices with more than 3 groups, for
+example.*
+
+```{r}
+generate_group_model <- function(groups, P, S){
+  M <- matrix(rbinom(S^2, size = 1, prob = P[groups, groups]), S, S)
+  M <- M[order(groups), order(groups)]
+  return(M)
+}
+
+S <- 20
+groups <- rbinom(S, size=4, 0.5)
+m <- max(groups)
+P <- matrix(runif((m + 1)^2), m + 1, m + 1)
+
+M <- generate_group_model(groups, P, S)
+groups <- groups[order(groups)] + 1 # Now this is needed, for the plotting,
+
+## Make a plot by groups
+Mplot <- tbl_df(melt(t(M))) %>%
+  mutate(Var2 = S - Var2 + 1,
+         group1 = groups[Var1],
+         group2 = groups[Var2],
+         tag = (group1-1)*(m + 1) + group2)
+
+Mplot %>% ggplot(aes(x = Var1, y = Var2, fill = as.character(tag))) +
+  geom_tile(alpha = 0.6) + theme_bw() +
+  geom_point(size = 5, alpha = 0.5,
+             aes(fill = as.factor(value), colour = as.factor(value))) +
+  scale_colour_manual(values = c("white", "black")) +
+  theme(legend.position = "none")
+```
 
 
 # Problem 5
 
-Compare generative models for a different network. That can be another food web
-(such as Chesapeake) or any other network. But, if you do not use a food web
-you should come up with generative model that make sense for your system!
+*Compare generative models for a different network. That can be another food
+web (such as Chesapeake) or any other network. But, if you do not use a food
+web you should come up with generative model that make sense for your system!*
 
 
 # Problem 6 (optional)
