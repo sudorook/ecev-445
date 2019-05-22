@@ -32,7 +32,8 @@ set.seed(10)
 
 *What essential features of food webs does the random algorithm miss?*
 
-Nestedness, modularity, trophic separation, etc.
+Nestedness, distributions of degree and betweenness over nodes, modularity,
+trophic separation, etc.
 
 
 # Problem 2
@@ -45,12 +46,10 @@ makeCascadeModel <- function(S, C) {
   res <- matrix(0, ncol=S, nrow=S)
   possiblelinks <- which(upper.tri(res))
 
-  # Compute the number of links necessary for the given connectance.
-  nlinks <- length(possiblelinks) * S*2 / (S-1) * C
-  rem <- nlinks - floor(nlinks)
-  nlinks <- floor(nlinks) + 1*(rem > runif(1))
+  # Compute the link probability links necessary for the given connectance.
+  plink <- C*S*2 / (S-1)
 
-  links <- sample(possiblelinks, nlinks) # fails if nlinks > possiblelinks
+  links <- possiblelinks[runif(length(possiblelinks)) < plink]
   res[links] <- 1
   return(res)
 }
@@ -58,24 +57,42 @@ makeCascadeModel <- function(S, C) {
 
 ```{r}
 pop <- makeCascadeModel(10, .15)
-pop
-```
+sum(pop) / (10*10)
 
-The implementation will produce an adjacency matrix that, if used to generate
-many matrices, will produce a set of with expected connectance that converges
-to the specified connectance. The implementation in Basingstoke, which is
-arguably simpler (though it could be made more concise), produces higher
-variance in connectance for smaller versus larger graphs.
+g <- graph_from_adjacency_matrix(pop)
+plot(g)
+```
 
 
 # Problem 3 (optional)
 
-Try to implement the niche model. This is a challenging function to write!!!
+*Try to implement the niche model. This is a challenging function to write!!!
 Guidelines: Follow the caption in Fig. 1 of Williams and Martinez (2000), and
 take the beta value for the beta distribution to be (S-1)/2SC-1 (as in equation
 10 in the Supp Info of Allesina et al. (Science, 2008)). You can also get some
 inspiration from the function NicheModelLinks for the last step determining the
-consumers. But do not copy-paste this whole function, of course!
+consumers. But do not copy-paste this whole function, of course!*
+
+```{r}
+makeNicheModel <- function(S, C) {
+  niches <- t(sort(runif(S)))
+ 
+  r <- niches * matrix(rbeta(S, 1, (S-1)/(2*S*C)-1), ncol=S)
+  r[,1] <- 0
+  c <- matrix(runif(S, min=r/2, max=pmin(niches, 1-r/2)), ncol=S)
+  pm <- (1*outer(niches, c-r/2, '>=')) * (1*outer(niches, c+r/2, '<='))
+
+  return(matrix(pm, ncol=S))
+}
+```
+
+```{r}
+pop <- makeNicheModel(25, .15)
+sum(pop) / (25*25)
+
+g <- graph_from_adjacency_matrix(pop)
+plot(g)
+```
 
 
 # Problem 4
@@ -120,20 +137,244 @@ Mplot %>% ggplot(aes(x = Var1, y = Var2, fill = as.character(tag))) +
 web (such as Chesapeake) or any other network. But, if you do not use a food
 web you should come up with generative model that make sense for your system!*
 
+```{r}
+calculateProperties <- function(g){
+  A <- as_adjacency_matrix(g, type = 'both', sparse = F)
+  L <- sum(A!=0)
+  S <- nrow(A)
+  C <- L/S^2
+  #C <- graph.density(g) # Also possible
+  GenSD <- sd(1/(L/S)*rowSums(A)) # Generality of species i
+  VulSD <- sd(1/(L/S)*colSums(A)) # Vulnerability of species i
+
+  Top <- sum(rowSums(A)==0)/vcount(g) # Top species do not have outgoing links
+  Bas <- sum(colSums(A)==0)/vcount(g) # Basal species do not have ingoing links
+  Int <- 1-(Top+Bas) # Intermediate are all the rest
+
+  basal_species <- which(colSums(A) == 0)
+  chain_length_mean <- mean(distances(g, v=basal_species))
+  chain_length_sd <- sd(distances(g, v=basal_species))
+  Cannib <- sum(diag(A)>0)/S
+
+  return(data.frame(L=L,C=C,GenSD=GenSD,VulSD=VulSD,Top=Top,Bas=Bas,Int=Int,ChnLg=chain_length_mean,ChnSd=chain_length_sd,Cannib=Cannib))
+}
+
+# We will need this function later. It is based on the code from lab 1.
+plot_web_trophic <- function(g){
+  basal <- which(igraph::degree(g, mode = 'in') == 0) # Basal species do not have ingoing links
+  top <- which(igraph::degree(g, mode = 'out') == 0) # Top species do not have outgoing links
+  interm <- V(g)[which(!V(g) %in% c(basal,top))] # Intermediate are all the rest
+
+  V(g)$troph_pos <- rep(0,length(V(g)))
+  V(g)$troph_pos[which(V(g)$name %in% basal)] <- 1
+  V(g)$troph_pos[which(V(g)$name %in% top)] <- 3
+  V(g)$troph_pos[which(V(g)$name %in% interm)] <- 2
+  # create a matrix forthe layout coordinates.
+  coords <- matrix(nrow=length(V(g)), ncol=2) #
+  # The x positions are randomly selected
+  coords[,1] <- runif(length(V(g)))
+  # The y positions are the trophoc positions
+  coords[,2] <- V(g)$troph_pos
+  par(mar=c(0,0,0,0))
+  plot(g,layout=coords,
+              vertex.color=V(g)$troph_pos,
+              vertex.label=NA,
+              vertex.size=8,
+              edge.color='black',
+              edge.arrow.size=.3,
+              edge.width=.5)
+}
+```
+
+```{r}
+# Load the Chesapeake data
+chesapeake_nodes <- read_csv('Chesapeake_bay_nodes.csv', col_names=F)
+chesapeake_links <- read_csv('Chesapeake_bay_links.csv', col_names=F)
+# colnames(chesapeake_nodes) <- c('id', 'name')
+# colnames(chesapeake_links) <- c('from', 'to', 'weight')
+```
+
+```{r}
+chesapeake_web <- graph.data.frame(chesapeake_links, vertices = chesapeake_nodes, directed = T)
+plot_web_trophic(chesapeake_web)
+```
+
+```{r}
+empirical <- calculateProperties(chesapeake_web)
+
+S=vcount(chesapeake_web)
+C=graph.density(chesapeake_web)
+N <- 100
+
+## Random model
+webs <- NULL
+for (i in 1:N){
+  webs[[i]] <- matrix(data = rbinom(S*S,1,C),nrow = S, ncol = S)
+}
+graphs_list <- NULL
+for (i in 1:N){
+  graphs_list[[i]] <- graph.adjacency(webs[[i]], mode = 'directed')
+}
+generated_properties_random <- lapply(graphs_list, calculateProperties) # apply the calculateProperties to every graph in the list of graphs.
+generated_properties_random <- do.call(rbind, generated_properties_random) # row-bind the data frames.
+generated_properties_random <- reshape2::melt(generated_properties_random) # This form is easier to plot
+
+
+## Cascade model
+webs <- CommunityFactory(S=S, n=N, generator=CascadeModelLinks, C=C) # use this function to generate an object of class "community"
+graphs_list <- NULL
+for (i in 1:N){
+  graphs_list[[i]] <- graph.data.frame(webs[[i]]$trophic.links, directed = T, vertices = webs[[i]]$nodes)
+}
+generated_properties_cascade <- lapply(graphs_list, calculateProperties)
+generated_properties_cascade <- do.call(rbind, generated_properties_cascade)
+generated_properties_cascade <- reshape2::melt(generated_properties_cascade)
+
+## Niche model
+webs <- CommunityFactory(S=S, n=N, generator=NicheModelLinks, C=C) # use this function to generate an object of class "community"
+graphs_list <- NULL
+for (i in 1:N){
+  graphs_list[[i]] <- graph.data.frame(webs[[i]]$trophic.links, directed = T, vertices = webs[[i]]$nodes)
+}
+generated_properties_niche <- lapply(graphs_list, calculateProperties)
+generated_properties_niche <- do.call(rbind, generated_properties_niche)
+generated_properties_niche <- reshape2::melt(generated_properties_niche)
+```
+
+```{r}
+# Data frame from the empirical value, to plot vertical lines on the histograms
+intercept_data <- as.data.frame(t(empirical)[,1]) # Intercept is where lines would meet the x axis on the final plot
+names(intercept_data)[1] <- 'intercept'
+intercept_data$variable <- rownames(intercept_data)
+
+# Create a data frame with all the results of the three models
+generated_properties_random$model <- 'Random'
+generated_properties_cascade$model <- 'Cascade'
+generated_properties_niche$model <- 'Niche'
+d <- rbind(generated_properties_random,generated_properties_cascade,generated_properties_niche)
+ggplot(d, aes(value, fill=model))+geom_histogram(alpha=0.3)+
+  facet_wrap(~variable, scales='free')+ # Separate panels for each property
+  geom_vline(data = intercept_data, aes(xintercept = intercept), color='red')+
+  theme_classic()
+```
+
 
 # Problem 6 (optional)
 
-Devise a code that maximizes the likelihood by also searching for the correct
-species order.
+*Note that for the Modified Cascade model I used this version of the likelihood
+function: $q_1^{L_1}(1-q_1)^{S(S-1)/2-L_1}\times
+q_2^{L_2}(1-q_2)^{S(S+1)/2-L_2}$. However, if we look at the original
+likelihood functions, we see that the empirical adjacency matrix $A_{ij}$ is a
+parameter in the likelihood functions of the Cascade, Modified Cascade and
+Niche models. Therefore, if we change the order of the rows or columns of
+$A_{ij}$, we can obtain a different value for the likelihood function! Purely
+for the sake of the example, in the code above we assumed that the line `A <-
+as_adjacency_matrix(otago_web, sparse=F)` gave us a matrix $A_{ij}$ which was
+ordered in a way that would maximize the likelihood function of the Modified
+Cascade model, $\prod_{i}^{S}\prod_{j>i}^{S}\lbrack
+q_1^{A_{ij}}(1-q_1)^{1-A_{ij}}\rbrack \prod_{i}^{S}\prod_{j=1}^{i}\lbrack
+q_2^{A_{ij}}(1-q_2)^{1-A_{ij}}\rbrack$. That would allow us to use the
+likelihood function I used. But that is not necessarily the case. To find the
+maximum likelihood, we should search for the optimal order of $A_{ij}$, which
+maximizes the likelihood.*
+
+*Devise a code that maximizes the likelihood by also searching for the correct
+species order.*
+
+The values for $L_1$ and $L_2$ that maximize the likelihood for $L$ links in a
+2-group graph are:
+
+\begin{equation}
+  \begin{split}
+  L_1 &= \frac{S-1}{2S} L \\
+  L_2 &= \frac{S+1}{2S} L
+  \end{split}
+\end{equation}
+
+These two expressions can be found by computing the MLE for $L_1$ and $L_2$
+from the likelihood with the constraint (via Lagrange multiplier) that $L_1 +
+L_2 = L$, where $L$ is the total number of links in the network.
+
+```{r}
+findPartition <- function(X, tol=.5) {
+  L <- sum(1*(X>0))
+  S <- nrow(X)
+  L2 <- (S+1)*L/2/S
+  L1 <- (S-1)/(S+1)*L2
+
+  # sort X so that sum(upper tri) == L1 and sum(lower tri + diag) == L2
+  # note, the solution will not necessarily be unique.
+  upper <- X
+  lower <- X
+  upper[lower.tri(upper)]<-0
+  diag(upper)<-0
+  lower[upper.tri(lower)]<-0
+  L1_cur <- sum(upper)
+  L2_cur <- sum(lower)
+
+  counter <- 1
+  dif <- L1_cur - L1
+  while( (counter < 1000) && (abs(dif) > tol) ) {
+    res <- sample(S, 2) # not sure how to pick the right combination, so just pick at random
+    idx1 <- res[1]
+    idx2 <- res[2]
+
+    # make the permutation matrix (row and col permutation)
+    perm <- diag(S) 
+    perm[idx1,idx1] <- 0
+    perm[idx2,idx2] <- 0
+    perm[idx1,idx2] <- 1
+    perm[idx2,idx1] <- 1
+    
+    new_X <- perm %*% X %*% perm
+    new_dif <- sum(new_X[upper.tri(new_X)]) - L1
+
+    # It's late; I'm tired. Just make this up as I go along. Keep improvements
+    # and accept worse solutions occasionally.
+    if (abs(new_dif) <= abs(dif)) {
+      X <- new_X
+    } else if (runif(1) < exp(abs(new_dif) - abs(dif))) {
+      X <- new_X
+    }
+
+    upper <- X
+    lower <- X
+    upper[lower.tri(upper)]<-0
+    diag(upper)<-0
+    lower[upper.tri(lower)]<-0
+    L1_cur <- sum(upper)
+    L2_cur <- sum(lower)
+
+    dif <- L1_cur - L1
+    counter <- counter + 1
+  }
+  # print(counter)
+  return(X)
+}
+```
+
+```{r}
+X <- matrix(rnorm(121), ncol=11)
+X <- 1*(X>0)
+
+X
+sum(X[upper.tri(X)])
+sum(X[lower.tri(X)]) + sum(diag(X))
+
+X2 <- findPartition(X)
+X2
+sum(X2[upper.tri(X2)])
+sum(X2[lower.tri(X2)]) + sum(diag(X2))
+```
 
 
 # Problem 7 (optional)
 
-Generating networks can be used to test, for example, hypotheses regarding the
+*Generating networks can be used to test, for example, hypotheses regarding the
 consequences of structure. For example, we can ask if networks generated with
 the niche model are more robust than those generated using an Erdos-Reyni
 process. One exercise would be to generate a distribution of networks of a
 given size and connectance using different models and test their robustness.
 Try to do develop that code. You can also try to test if robustness is affected
 by the interaction between size, connectance and the different models (i.e., if
-different models produce more robust networks for a given range of $S$ or $C$)
+different models produce more robust networks for a given range of $S$ or $C$)*
