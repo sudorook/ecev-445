@@ -1,0 +1,36 @@
+---
+title: Lab 7
+author: Ansel George
+output:
+    pdf_document:
+        latex_engine: xelatex
+mainfont: Noto Sans
+monofont: Ubuntu Mono
+fontsize: 11pt
+---
+
+# Problem 1
+*The matrix in this section is not stable. How can you make it stable? Show.*
+
+
+# Problem 2
+*Given a matrix with `S=250` and a self-regulation value of `-1.5`, what is the
+necessary variance of the interactions to make it stable? Show analytically and
+computationally.*
+
+
+# Problem 3
+*How does the probability of stability depend on the number of species? Why? Try
+to increase the number of species.*
+
+
+# Problem 4
+*Try to examine the role of the mean for a different distribution than uniform
+(line `M <- matrix(runif(S^2, min = -sqrt(3), max = sqrt(3)), S, S)`).*
+
+
+# Problem 5
+*What do you notice about the effect of modularity vs. anti-modularity on the
+outlier eigenvalues?*
+
+
