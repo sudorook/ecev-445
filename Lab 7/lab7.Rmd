@@ -4,13 +4,79 @@ author: Ansel George
 output:
     pdf_document:
         latex_engine: xelatex
-mainfont: Noto Sans
-monofont: Ubuntu Mono
-fontsize: 11pt
+mainfont: LiberationSans
+sansfont: LiberationSans
+mathfont: LiberationSans
+monofont: LiberationMono
+fontsize: 12pt
 ---
+
+```{r, message=F}
+library(igraph)
+library(dplyr)
+library(tidyr)
+library(reshape2)
+library(ggplot2)
+library(magrittr)
+library(MASS)
+library(RColorBrewer)
+
+set.seed(10)
+```
+
+```{r}
+## theme for ggplot
+mytheme <- theme_bw() + theme(
+  legend.title  = element_text( size=17),
+  # legend.position = "bottom",
+  # legend.direction = "horizontal",
+  legend.key = element_blank(),
+  legend.text  = element_text( size=17),
+  panel.background = element_blank(),
+  panel.grid = element_blank(),
+  text = element_text( family="Helvetica", size=19),
+  strip.text.x = element_text(family = "Helvetica", size = 10),
+  strip.text.y = element_text(family = "Helvetica", size = 10),
+  panel.border = element_rect( colour = "black", size=1.3),
+  axis.ticks = element_line(size = 1.3),
+  strip.background = element_rect(fill = "transparent", 
+                                  size = 1.3, colour = "black"),
+  strip.text = element_text(size = 19)
+)
+```
+
 
 # Problem 1
 *The matrix in this section is not stable. How can you make it stable? Show.*
+
+```{r}
+S <- 500
+M <- matrix(runif(S^2, min=-sqrt(3), max=sqrt(3)), S, S) # We use sqrt(3) so the sd of the uniform distribution will be 1)
+diag(M) <- -sqrt(S+10) # use S+10 so that sigma*sqrt(C*S) < d is strictly true
+e <- eigen(M, only.values=TRUE)$values ## compute the eigenvalues of M
+data_eigenvalues <- tibble(x=Re(e), y=Im(e), S=S) ## data frame storage useful for plotting with ggplot
+
+data_eigenvalues %>%
+  ggplot(aes(x=x, y=y)) + geom_point() + mytheme + coord_fixed()
+
+expectation_girko <- tibble(x=rep(seq(-2,2,0.001), 2),
+                            type=rep(c(1, -1), each=length(x)/2),
+                            y=sqrt(1 - (x)^2) * type)
+expectation_girko %<>% mutate(x=sqrt(S)*x - sqrt(S+10), y=sqrt(S)*y)
+
+data_eigenvalues %>% ggplot(aes(x=x, y=y)) +
+  geom_point() +
+  geom_path(data=expectation_girko, colour="red") +
+  mytheme +
+  xlab(expression(Re(lambda))) +
+  ylab(expression(Im(lambda)))+coord_fixed()
+```
+
+The maximum eigenvalue of the matrix is:
+
+```{r}
+max(data_eigenvalues$x)
+```
 
 
 # Problem 2
@@ -18,19 +84,241 @@ fontsize: 11pt
 necessary variance of the interactions to make it stable? Show analytically and
 computationally.*
 
+\begin{equation}
+  \begin{split}
+    \sigma \sqrt{SC} < d \\
+    \sigma \sqrt{250} < 1.5 \\
+    \implies \sigma < \frac{1.5}{\sqrt{250}} \approx 0.09486833
+    \implies \sigma^2 \approx 0.009
+  \end{split}
+\end{equation}
+
+```{r}
+S <- 250
+d <- 1.5
+v <- 1.5^2/250
+a <- sqrt(3*v) # for uniform distribution
+
+M <- matrix(runif(S^2, min=-a, max=a), S, S) # We use sqrt(3) so the sd of the uniform distribution will be 1)
+diag(M) <- -d
+e <- eigen(M, only.values=TRUE)$values ## compute the eigenvalues of M
+data_eigenvalues <- tibble(x=Re(e), y=Im(e), S=S) ## data frame storage useful for plotting with ggplot
+
+data_eigenvalues %>%
+  ggplot(aes(x=x, y=y)) + geom_point() + mytheme + coord_fixed()
+```
+
 
 # Problem 3
 *How does the probability of stability depend on the number of species? Why? Try
 to increase the number of species.*
 
+The matrix is pushed closer and closer to the $d$ threshold
+for stability as the number of species increases. Therefore, stability
+probability decreases as species number increases, given other parameters held
+constant.
+
+When the other parameters vary, if for example $\sigma < 1$ and $d =
+-\sqrt{SC}$, the system will likely be stable because self-regulation strength
+scales with species number.
+
+```{r}
+S_seq <- c(25, 50, 100, 150, 200) # A curve per network size
+nsim <- 50                        # Generate multiple random matrices for each S
+sigma_seq <- seq(0.8, 1.2, 0.01)  # Vary sigma
+C <- 0.15
+
+# Function to create a matrix and test if its righmost ev is negative.
+stable_matrix <- function(i){
+  M <- matrix(runif(S^2, min=-sqrt(3)*sigma, max=sqrt(3)*sigma) *
+              rbinom(S^2, size=1, prob=C), S, S)
+  diag(M) <- 0
+  M <- M + diag(S) * d
+  e <- eigen(M, only.values=TRUE)$values
+  return(max(Re(e)) < 0) # The rightmost eigenvalue should be negative for the matrix to be locally-stable
+}
+
+# Calculate the probability of stability for each combination of network size and sigma.
+prob_stability_df <- NULL
+for (S in S_seq){
+  print(S)
+  d <- -sqrt(S * C) # Set the diagonal to sqrt(SC) to make sigma=1
+  for (sigma in sigma_seq){
+    num_stable <- 0
+    for (i in 1:nsim){
+      num_stable <- num_stable + stable_matrix() # If the matrix is stable at it ot the count.
+    }
+    p_stability <- num_stable/nsim
+    prob_stability_df <- rbind(prob_stability_df,
+                               data.frame(S=S, sigma=sigma, p_stability=p_stability))
+  }
+}
+```
+
+```{r}
+prob_stability_df %>%
+  ggplot(aes(x=sigma, y=p_stability, colour=factor(S), shape=factor(S))) +
+  geom_point(size=3) +
+  geom_line() +
+  mytheme +
+  xlab(expression(sigma)) +
+  ylab(expression(p[stab])) +
+  scale_colour_discrete(name="S") +
+  scale_shape_discrete(name="S") +
+  geom_vline(xintercept=1, linetype='dashed')
+```
+
 
 # Problem 4
 *Try to examine the role of the mean for a different distribution than uniform
-(line `M <- matrix(runif(S^2, min = -sqrt(3), max = sqrt(3)), S, S)`).*
+(line `M <- matrix(runif(S^2, min=-sqrt(3), max=sqrt(3)), S, S)`).*
+
+```{r}
+S <- 500
+mu_seq <- c(-0.1, 0.01, 0.1)
+outliers <- tibble(x=(S - 1) * mu_seq-sqrt(S), y=0, mu=mu_seq) # Estimation of where the ev will fall
+```
+
+```{r}
+data_evs_mean_unif <- lapply(mu_seq,
+                        function(mu){
+                          M <- matrix(runif(S^2, min=-sqrt(3), max=sqrt(3)), S, S)
+                          diag(M) <- -sqrt(S)
+                          M <- M + mu - diag(S) * mu
+                          e <- eigen(M, only.values=TRUE)$values
+                          data_frame(x=Re(e), y=Im(e), S=S, mu=mu)
+                        }) %>% bind_rows()
+
+
+data_evs_mean_unif %>%
+  ggplot(aes(x=x, y=y)) +
+  geom_point(size=1.3, alpha=0.5) +
+  mytheme +
+  xlab(expression(Re(lambda))) +
+  ylab(expression(Im(lambda))) +
+  facet_grid(mu ~.) +
+  coord_fixed() +
+  geom_point(data=outliers, size=2, colour="red")
+```
+
+Use a Beta distribution because it has support $[0,1]$. To get the variances
+right, the distribution will need to be scaled.
+
+```{r}
+data_evs_mean_beta <- lapply(mu_seq,
+                        function(mu){
+                          M <- matrix(runif(S^2, min=-sqrt(3), max=sqrt(3)), S, S)
+                          tmp <- rbeta(S^2, shape1=.1, shape2=1)
+                          tmp <- tmp / sd(tmp) # normalize to get variance=1
+                          M <- matrix(tmp, S, S)
+                          diag(M) <- -sqrt(S)
+                          M <- M + mu - diag(S) * mu
+                          e <- eigen(M, only.values=TRUE)$values
+                          data_frame(x=Re(e), y=Im(e), S=S, mu=mu)
+                        }) %>% bind_rows()
+
+
+data_evs_mean_beta %>% 
+  ggplot(aes(x=x, y=y)) +
+  geom_point(size=1.3, alpha=0.5) +
+  mytheme +
+  xlab(expression(Re(lambda))) +
+  ylab(expression(Im(lambda))) +
+  facet_grid(mu ~.) +
+  coord_fixed()
+  # geom_point(data=outliers, size=2, colour="red")
+```
+
+The effect of the mean is similar to that of the data generated from the
+uniform distribution. More negative means will push the principal eigenvalue
+further down in magnitude, and more positive ones will further increase it.
 
 
 # Problem 5
 *What do you notice about the effect of modularity vs. anti-modularity on the
 outlier eigenvalues?*
 
+```{r}
+S <- 100
+C <- 0.4
+alpha <- 1/4
+m <- S * alpha  ## size of the top module
+sigma <- 1
+mu_seq <- c(-1/4, 0, 1/4)
+#n <- length(mu_seq)
+rho_seq <- c(-1/4, -3/4, -0.5)
+Q_seq <- c(-0.5, 0, 0.35) # This is the modularity
 
+generate_K <- function(Q){
+  K <- matrix(0, S, S) ## adjacency matrix
+  Cw <- C * (1 + Q/(alpha^2 + (1-alpha)^2)) # within block connectance
+  Cb <- C * (1 - Q/(2 * alpha * (1-alpha))) # between block connectance
+  # Between-block interactions
+  AB <- matrix(runif(m * (S-m)) < Cb, m , S - m)
+  # Within-block interactions
+  K[1:m, 1:m] <- matrix(runif(m^2) < Cw, m, m)
+  K[(m + 1):S, (m+1):S] <- matrix(runif((S - m)^2) < Cw, S - m, S - m)
+  # Add the between-block interactions to K
+  K[1:m, (m+1):S] <- AB
+  K[(m+1):S, 1:m] <- t(AB)
+  return(K)
+}
+
+generate_M <- function(mu, rho, K, Q){
+  M <- matrix(0, S, S) ## Community matrix
+  Sigma <- matrix(c(sigma^2, rho * sigma^2, rho * sigma^2, sigma^2), nrow = 2) # Covariance matrix for bivariate normal distribution
+  # Fill in M with interaction values
+  for(i in seq(1, S - 1)) {
+    for (j in seq(i + 1, S)){
+      if (K[i,j] > 0){
+        Z <- mvrnorm(1, c(mu, mu), Sigma) #
+        M[i,j] <- Z[1]
+        M[j,i] <- Z[2]
+      }
+    }
+  }
+  return(M)
+}
+```
+
+```{r}
+data_modules <- NULL
+data_outliers <- NULL
+for (Q in Q_seq){
+  K <- generate_K(Q)
+  for (i in 1:length(mu_seq)){
+    mu <- mu_seq[i]
+    rho <- rho_seq[i]
+    print (paste(Q, mu, rho))
+    M <- generate_M(mu, rho, K, Q)
+    # Get the eigenvalues of M
+    e <- eigen(M, only.values=TRUE)$values
+    data_modules <- rbind(data_modules, data_frame(x=Re(e), y=Im(e), S=S, mu=mu, rho=rho, Q=Q))
+
+    ## the following calculates the eigenvalues for the matrix of means + a small correction
+    ## given by the correlation
+    Cw <- C * (1 + Q/(alpha^2 + (1-alpha)^2)) # within block connectance
+    Cb <- C * (1 - Q/(2 * alpha * (1-alpha))) # between block conenctnve
+    mu_w <- Cw * mu
+    mu_b <- Cb * mu
+    data_outliers <- rbind(data_outliers,
+    tibble(x=S/2 * (mu_w + c(1,-1) * (sqrt((1 - 4*alpha * (1- alpha)) * mu_w^2 + 4 * alpha* (1-alpha) * mu_b^2))), correction=ifelse(x !=0, rho/x, 0), y=0, S=S, mu=mu, rho=rho, Q=Q))
+  }
+}
+
+data_modules %>% ggplot(aes(x=x, y=y, colour=factor(mu))) +
+    geom_point(size=2.5, alpha=0.5) +
+    geom_point(data=data_outliers, aes(x=x + correction), colour="red") +
+  mytheme + xlab(expression(Re(lambda))) +
+  ylab(expression(Im(lambda))) +
+  scale_colour_discrete(name=expression(mu))+
+  coord_fixed() +
+  facet_grid(Q ~ mu,
+             labeller=label_bquote(cols=paste(mu,"=",.(mu), collapse=""),
+                                   rows=paste(Q,"=",.(Q), collapse="")))
+```
+
+For modular networks, extreme eigenvalues are all positive or negative
+depending on the value of the mean, but for anti-modular networks, extreme
+eigenvalues exist at both positive and negative values. This mean that
+anti-modular networks are inherently unstable irrespective of the mean.
