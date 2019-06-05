@@ -1,0 +1,74 @@
+\documentclass{beamer}
+
+\mode<presentation>{%
+  \usetheme[block=fill,progressbar=frametitle]{metropolis}
+  \setsansfont{Roboto}
+  % % \setsansfont{Ubuntu}
+  % \setmonofont{Ubuntu Mono}
+}
+
+% \usepackage{graphicx}
+% \usepackage{booktabs}
+
+\title{Review: Networks and Gene Flow}
+\author{Ansel George}
+
+\begin{document}
+
+\begin{frame}
+\titlepage%
+\end{frame}
+
+\begin{frame}
+  \frametitle{Overview}
+  \begin{block}{Question}
+    How can networks be used to understand gene flow?
+  \end{block}
+  \begin{itemize}
+    \item Populations vary in allele frequency distributions over space and time
+    \begin{itemize}
+      \item Arises spontaneously from drift and mutation
+      \item Skewed by natural selection
+    \end{itemize}
+    \item Genetic differences can be specified quantitatively
+      \begin{itemize}
+        \item (e.g. haplotype blocks, SNPs, microsatellites, etc.)
+      \end{itemize}
+    \item Differences can be used to construct network graphs
+  \end{itemize}
+\end{frame}
+
+\begin{frame}
+  \frametitle{Approaches}
+  % \begin{enumerate}
+  \begin{description}
+
+    \item[Type 1]{Population history $\rightarrow$ genotype}
+      \begin{enumerate}
+        \item Characterizing migration among demes
+          \begin{enumerate}
+            \item Migration can increase standing variation
+          \end{enumerate}
+        \item Modelling how beneficial alleles propagate
+      \end{enumerate}
+
+    \item[Type 2]{Genotype $\rightarrow$ population structure}
+      \begin{enumerate}
+        \item Reconstructing phylogenies
+          \begin{enumerate}
+            \item Use network measures on genetic distance map
+          \end{enumerate}
+        \item Inferring migration history
+          \begin{enumerate}
+            \item Very difficult!
+          \end{enumerate}
+      \end{enumerate}
+
+  % \end{enumerate}
+  \end{description}
+\end{frame}
+
+% \begin{frame}[label=end, standout]
+% \end{frame}
+
+\end{document}
