@@ -1,0 +1,111 @@
+%!TEX encoding = UTF-8 Unicode
+
+\documentclass[10pt]{article}
+\usepackage[margin=1in]{geometry}
+
+\title{Network Measures of Gene Flow}
+\author{Ansel George}
+\date{\today}
+
+\begin{document}
+\maketitle
+\pagenumbering{gobble}
+
+Placeholder citation.~\cite{corander_bayesian_nodate}
+
+Measuring gene flow in migrating populations is a complicated process that
+depends, analytically, on assumptions on allele frequency, migration
+assumptions, and 
+
+Issues with measuring gene flow:
+\begin{itemize}
+  \item Assumptions on allele frequency
+  \item Mating patterns
+  \item Selection
+  \item Migration rates
+\end{itemize}
+
+Several strategies exist to estimate gene flow, or more often metrics that are
+affected by gene flow.
+
+
+\begin{itemize}
+  \item $F_{st}$
+  \item AMOVA
+  \item Nei's D
+  \item Heterozygosity
+  \item Pairwise isolation by genetic distance (slatkin 1993; and rousset 1997)
+  \item Spatial autocorrelation
+  \item Coalescent models (structured coalescent)
+\end{itemize}
+
+
+Non-network methods:
+
+\begin{itemize}
+  \item Model-based
+  \item Non-parametric dimensionality reduction
+    \begin{itemize}
+      \item Principal components analysis
+      \item Multi-dimensional scaling (PCoA)
+    \end{itemize}
+  \item Distance-correlations (related to PCA)
+\end{itemize}
+
+Gene flow acts to maintain genetic diversity across demes.
+
+Check the citations for the Bayesian papers and the network papers.
+
+
+Paper summaries:
+
+Population graphs~\cite{dyer_population_2004}:
+
+Evolutionary phenomena are highly non-linear processes driven, at the
+population level, by temporal and spatial variation and interactions. Many
+metrics to understand the dynamics rely on linear models that attempt to
+simplify the underlying dynamics in ways that make solving problems
+computationally tractable and biologically meaningful.
+
+Hypothesis: is it possible to instead use network-based approaches that rather
+than rely on linear models or summary statistics corresponding to one's
+distribution of choice, can evolutionary phenomena be better analyzed by
+network-based approaches.
+
+Get matrix of genetic distances.
+
+Compute centroid for distances for each subpopulation (sampling site).
+
+Join edges weighted by genetic distance.
+
+Use edge deviance (Magwene 2001) to prune edges from graph while maintaining
+covariance structure (relies of conditional independence of data.)
+
+Compute covariance matrix
+
+Invert to get precision matrix (iffy!)
+
+
+Genealogical Interpretation of PCA~\cite{mcvean_genealogical_2009}:
+
+Many evolutionary processes exist in different strengths (in space and time).
+Many processes can lead to the same summary statistic. Species experience all
+phenomena in varying degree over time.
+
+Susceptible to differences iin sample size.
+
+Can use projections to infer admixture.
+
+
+Modularity and community structure in networks~\cite{newman_modularity_2006}:
+
+$O(n {(\log{n})}^2)$ runtime.
+
+
+
+
+
+\bibliography{publications}
+\bibliographystyle{abbrv}
+
+\end{document}
