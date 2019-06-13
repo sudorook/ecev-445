@@ -3,11 +3,12 @@ TEX=xelatex
 BIB=bibtex
 
 
-all: ${BIB} ${TEX}
-# all: ${TEX}
+# all: ${BIB} ${TEX}
+all: ${TEX}
+	$(TEX) ${TEXFILE}
 
 
-${TEX}:
+${TEX}: ${BIB}
 	$(TEX) ${TEXFILE} ;\
 
 
