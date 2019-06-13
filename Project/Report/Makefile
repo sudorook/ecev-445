@@ -3,7 +3,6 @@ TEX=xelatex
 BIB=bibtex
 
 
-# all: ${BIB} ${TEX}
 all: ${TEX}
 	$(TEX) ${TEXFILE}
 
